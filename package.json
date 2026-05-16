@@ -7,10 +7,10 @@
     "start": "node api/extract.js"
   },
   "dependencies": {
-    "@sparticuz/chromium": "^123.0.0",
-    "puppeteer-core": "^22.6.0"
+    "@sparticuz/chromium": "^132.0.0",
+    "puppeteer-core": "^24.0.0"
   },
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
   }
 }
