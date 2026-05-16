@@ -1,0 +1,16 @@
+{
+  "name": "gemipro-we-yt-proxy",
+  "version": "1.0.0",
+  "description": "Gemipro Web Edition - YouTube JS Execution Rendering Proxy",
+  "main": "api/extract.js",
+  "scripts": {
+    "start": "node api/extract.js"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^123.0.0",
+    "puppeteer-core": "^22.6.0"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
