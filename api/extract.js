@@ -1,4 +1,4 @@
-# https://script.google.com/macros/s/AKfycbx4dRFVlecBY0RXMoaGFdvb5Hbl77FRv7bfDv1-00BD-5VYpgvjJckS4tkC5gSbPIf2/exec?type=youtube
+let GASUrl = "https://script.google.com/macros/s/*/exec?"
 // 📦 Vercel環境でブラウザを爆速で動かすための特殊ユニット
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
