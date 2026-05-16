@@ -1,9 +1,13 @@
 let GASUrl = "https://script.google.com/macros/s/*/exec?"
+// 🚨 [最優先] システムのライブラリ不足を騙すため、自分たちのフォルダを探索パスの最前線に配置！
+const path = require('path');
+const libPath = path.join(process.cwd(), 'api', 'lib');
+process.env.LD_LIBRARY_PATH = `${libPath}:${process.env.LD_LIBRARY_PATH || ''}`;
+
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 
 module.exports = async (req, res) => {
-  // CORS防御壁をあらかじめ解放
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -19,7 +23,7 @@ module.exports = async (req, res) => {
   let browser = null;
 
   try {
-    // 🛡️ Vercelのインフラ内で headless Chrome を絶対に暴走させずに起動する設定
+    // 🛡️ ポータブルライブラリを読み込ませつつChromiumを召喚
     browser = await puppeteer.launch({
       args: [
         ...chromium.args,
@@ -27,7 +31,7 @@ module.exports = async (req, res) => {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gl-drawing-for-tests',
-        '--single-process' // 👈 これがVercelのコンテナ制限を突破する超重要フラグ！
+        '--single-process'
       ],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
@@ -36,17 +40,14 @@ module.exports = async (req, res) => {
     });
 
     const page = await browser.newPage();
-    
-    // 人間になりすます偽装データ
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-    // 🚀 YouTubeへ突撃！JSの実行と裏のURL継ぎ足し（networkidle2）をじっと待つ
+    // 🚀 YouTubeのJS実行待機
     await page.goto(targetUrl, { 
       waitUntil: 'networkidle2', 
       timeout: 25000 
     });
 
-    // JavaScript実行完了後の、完全体HTMLを強奪！！
     const executedHtml = await page.content();
 
     res.status(200).json({
@@ -58,11 +59,10 @@ module.exports = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: `Vercel Browser Crash: ${error.message}`,
+      error: `Vercel Pure Proxy Crash: ${error.message}`,
       stack: error.stack
     });
   } finally {
-    // ゾンビプロセス化してVercelのメモリを食い潰さないように確実に閉じる
     if (browser !== null) {
       await browser.close();
     }
