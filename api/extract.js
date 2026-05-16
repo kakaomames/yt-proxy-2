@@ -1,8 +1,9 @@
 let GASUrl = "https://script.google.com/macros/s/*/exec?"
-// 🎯 Vercel側はただの中継基地にするため、重たいPuppeteerはすべて撤去！
-const axios = require('axios'); // ※ package.json に "axios" を追加するぞ！
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
 
 module.exports = async (req, res) => {
+  // CORS防御壁をあらかじめ解放
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -15,29 +16,55 @@ module.exports = async (req, res) => {
   const videoId = req.query.videoId || 'AyNILJgjIco';
   const targetUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  // 🛰️ クラウドの最強JS実行プロキシ「Scrape.do」の無料エンドポイントをハック！
-  // 登録不要でテストできるデモトークン、または自分の無料トークンを入れる枠
-  const token = "YOUR_SCRAPEDO_TOKEN"; 
-  
-  // もしトークンがまだなければ、ただの超高速プロキシ「ProxyCrawl」などの無料エンドポイントでも可
-  // 今回は「Scrape.do」のJSレンダリングモード（&render=true）を起動させる通信を編成！
-  const proxyUrl = `https://api.scrape.do?token=6f7902d3856b4ab9bc62e0ca589e4ec3ff1c874e&url=${encodeURIComponent(targetUrl)}&render=true`;
+  let browser = null;
 
   try {
-    // 1. クラウド側のブラウザファームに、YouTubeのJS実行を丸投げしてHTMLを強奪する！
-    const response = await axios.get(proxyUrl);
-    const executedHtml = response.data;
+    // 🛡️ Vercelのインフラ内で headless Chrome を絶対に暴走させずに起動する設定
+    browser = await puppeteer.launch({
+      args: [
+        ...chromium.args,
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gl-drawing-for-tests',
+        '--single-process' // 👈 これがVercelのコンテナ制限を突破する超重要フラグ！
+      ],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
+    });
+
+    const page = await browser.newPage();
+    
+    // 人間になりすます偽装データ
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+
+    // 🚀 YouTubeへ突撃！JSの実行と裏のURL継ぎ足し（networkidle2）をじっと待つ
+    await page.goto(targetUrl, { 
+      waitUntil: 'networkidle2', 
+      timeout: 25000 
+    });
+
+    // JavaScript実行完了後の、完全体HTMLを強奪！！
+    const executedHtml = await page.content();
 
     res.status(200).json({
       success: true,
       videoId: videoId,
-      html: executedHtml // これが、OSのエラーをすり抜けて取ってきた本物のJS実行済みHTMLだ！
+      html: executedHtml
     });
 
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: `Cloud Proxy Failed: ${error.message}`
+      error: `Vercel Browser Crash: ${error.message}`,
+      stack: error.stack
     });
+  } finally {
+    // ゾンビプロセス化してVercelのメモリを食い潰さないように確実に閉じる
+    if (browser !== null) {
+      await browser.close();
+    }
   }
 };
